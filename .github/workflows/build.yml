@@ -9,11 +9,38 @@ contents: read
 jobs:
 build:
 runs-on: ubuntu-latest
-steps:
-- name: Checkout repository
-uses: actions/checkout@v4
 
-  - name: Check project files
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Set up Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
+
+  - name: Extract Android project
     run: |
-      echo "Repository is ready."
-      find . -maxdepth 3 -type f
+      unzip -q AIStockSignalAndroid-source.zip -d android-source
+      find android-source -name settings.gradle -print
+
+  - name: Set up Gradle
+    uses: gradle/actions/setup-gradle@v4
+
+  - name: Build APK
+    run: |
+      PROJECT_DIR=$(dirname "$(find "$GITHUB_WORKSPACE/android-source" -name settings.gradle -print -quit)")
+      if [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
+        echo "Android project files not found in the expected structure."
+        exit 1
+      fi
+      cd "$PROJECT_DIR"
+      gradle assembleDebug
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: AIStockSignal-APK
+      path: android-source/**/app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
